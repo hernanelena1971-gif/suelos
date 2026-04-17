@@ -7,12 +7,8 @@
   <!-- Leaflet -->
   <link
     rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
-  />
-  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
-
-  <!-- Supabase -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    href="https://cdn.jsdelivr.net/npm/leaflet@1.9tps://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npmpabase-js@2
 
   <style>
     body {
@@ -27,7 +23,7 @@
     }
 
     #map {
-      height: calc(100vh - 80px);
+      height: calc(100vh - 60px);
     }
 
     label {
@@ -78,7 +74,7 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: "© OpenStreetMap"
 }).addTo(map);
 
-let markersLayer = L.layerGroup().addTo(map);
+const markersLayer = L.layerGroup().addTo(map);
 
 /* ======================================================
    CARGAR USUARIOS (dueños de datos)
@@ -91,6 +87,7 @@ async function cargarUsuarios() {
 
   if (error) {
     console.error("Error cargando usuarios:", error);
+    alert("Error cargando usuarios (ver consola)");
     return;
   }
 
@@ -128,17 +125,16 @@ document.getElementById("usuariosSelect")
 
     if (error) {
       console.error("Error cargando sitios:", error);
+      alert("Error cargando sitios (ver consola)");
       return;
     }
 
     data.forEach(s => {
-      // Combo de sitios
       const opt = document.createElement("option");
       opt.value = s.id;
       opt.textContent = s.codigo_sitio;
       sitioSelect.appendChild(opt);
 
-      // Mapa
       if (s.latitud && s.longitud) {
         L.marker([s.latitud, s.longitud])
           .addTo(markersLayer)
@@ -157,7 +153,7 @@ async function agregarMuestra() {
     return;
   }
 
-  const idLab = prompt("ID de laboratorio para la muestra:");
+  const idLab = prompt("ID de laboratorio de la muestra:");
   if (!idLab) return;
 
   const fecha = prompt(
