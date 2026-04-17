@@ -2,19 +2,25 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <title>Alta de Sitios</title>
+  <title>Sitios – Visualización</title>
 
+  <!-- Leaflet -->
   <link
     rel="stylesheet"
     href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
   />
   <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 
+  <!-- Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <style>
-    body { margin: 0; }
+    body { margin: 0; font-family: Arial, sans-serif; }
     #map { height: 100vh; }
+
+    .popup {
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
@@ -22,7 +28,9 @@
 <div id="map"></div>
 
 <script>
-/* SUPABASE */
+/* =================================
+   SUPABASE
+================================= */
 const SUPABASE_URL = "https://qtlegktrlrvtwfonqclj.supabase.co";
 const SUPABASE_KEY = "sb_publishable_w-1OBaxH7ZHonR75QGxbEQ_IgjYw7Tu";
 
@@ -31,64 +39,26 @@ const supabaseClient = supabase.createClient(
   SUPABASE_KEY
 );
 
-/* MAPA */
+/* =================================
+   MAPA
+================================= */
 const map = L.map("map").setView([-34.6, -58.4], 6);
 
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: "© OpenStreetMap"
 }).addTo(map);
 
-/* CARGAR SITIOS */
+/* =================================
+   ESTADO
+================================= */
+let sitioSeleccionado = null;
+
+/* =================================
+   CARGAR SITIOS
+================================= */
 async function cargarSitios() {
   const { data, error } = await supabaseClient
     .from("sitios")
     .select("*");
 
   if (error) {
-    console.error(error);
-    return;
-  }
-
-  data.forEach(s => {
-    if (s.latitud && s.longitud) {
-      L.marker([s.latitud, s.longitud])
-        .addTo(map)
-        .bindPopup(`
-          <b>${s.codigo_sitio}</b><br>
-          ${s.descripcion ?? ""}
-        `);
-    }
-  });
-}
-
-/* ALTA */
-map.on("click", async (e) => {
-  const codigo = prompt("Código del sitio:");
-  if (!codigo) return;
-
-  const descripcion = prompt("Descripción (opcional):");
-
-  const { error } = await supabaseClient
-    .from("sitios")
-    .insert({
-      codigo_sitio: codigo,
-      descripcion: descripcion,
-      latitud: e.latlng.lat,
-      longitud: e.latlng.lng
-    });
-
-  if (error) {
-    alert("Error al guardar");
-    console.error(error);
-  } else {
-    alert("Sitio guardado");
-    location.reload();
-  }
-});
-
-cargarSitios();
-</script>
-
-</body>
-</html>
-``
