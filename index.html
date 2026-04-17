@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Alta de Sitios</title>
+
+  <!-- Leaflet -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
+  />
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    body { margin: 0; }
+    #map { height: 100vh; }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<script>
+/* =========================
+   CONFIGURACIÓN SUPABASE
+========================= */
+const SUPABASE_URL = "https://TU_PROYECTO.supabase.co";
+const SUPABASE_KEY = "TU_ANON_KEY";
+
+const supabase = supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_KEY
+);
+
+/* =========================
+   MAPA
+========================= */
+const map = L.map("map").setView([-34.6, -58.4], 6);
+
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  attribution: "© OpenStreetMap"
+}).addTo(map);
+
+/* =========================
+   CARGAR SITIOS EXISTENTES
+========================= */
+async function cargarSitios() {
+  const { data, error } = await supabase
+    .from("sitios")
+    .select("*");
+
+  if (error) {
+    console.error("Error cargando sitios:", error);
+    return;
+  }
+
+  data.forEach(s => {
+    if (s.latitud && s.longitud) {
+      L.marker([s.latitud, s.longitud])
+        .addTo(map)
+        .bindPopup(`
+          <b>${s.codigo_sitio}</b><br>
+          ${s.descripcion ?? ""}
+        `);
+    }
+  });
+}
+
+/* =========================
+   ALTA DE SITIOS
+========================= */
+map.on("click", async (e) => {
+  const codigo = prompt("Código del sitio:");
+  if (!codigo) return;
+
+  const descripcion = prompt("Descripción (opcional):");
+
+  const { error } = await supabase
+    .from("sitios")
+    .insert({
+      codigo_sitio: codigo,
+      descripcion: descripcion,
+      latitud: e.latlng.lat,
+      longitud: e.latlng.lng
+    });
+
+  if (error) {
+    alert("Error al guardar");
+    console.error(error);
+  } else {
+    alert("Sitio guardado");
+    location.reload();
+  }
+});
+
+/* ========================= */
+cargarSitios();
+</script>
+
+</body>
+</html>
