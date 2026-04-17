@@ -2,17 +2,14 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <title>Laboratorio SAF – Gestión de Sitios y Muestras</title>
+
+  <title>Laboratorio – Gestión</title>
 
   <!-- Leaflet -->
   <link
     rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
-  />
-  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
-
-  <!-- Supabase -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leafdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js<!-- Supabase -->
+  https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2
 
   <style>
     body {
@@ -20,19 +17,18 @@
       font-family: Arial, sans-serif;
     }
 
-    #login {
-      padding: 20px;
-    }
-
-    #panel {
+    #login, #panel {
       padding: 10px;
       background: #f5f5f5;
       border-bottom: 1px solid #ccc;
+    }
+
+    #panel {
       display: none;
     }
 
     #map {
-      height: calc(100vh - 70px);
+      height: calc(100vh - 120px);
       display: none;
     }
 
@@ -42,40 +38,34 @@
     }
 
     select, button, input {
-      margin-right: 15px;
+      margin-right: 10px;
       padding: 5px;
     }
   </style>
 </head>
 <body>
 
-<!-- ================= LOGIN ================= -->
 <div id="login">
   <h3>Login laboratorio</h3>
-  <input id="email" type="email" placeholder="email"><br><br>
-  <input id="password" type="password" placeholder="password"><br><br>
+  <input id="email" type="email" placeholder="email">
+  <input id="password" type="password" placeholder="password">
   <button onclick="login()">Entrar</button>
-  <p id="loginMsg"></p>
+  <div id="loginMsg"></div>
 </div>
 
-<!-- ================= PANEL ================= -->
 <div id="panel">
-  <label>Usuario:</label>
+  <label>Usuario</label>
   <select id="usuariosSelect"></select>
 
-  <label>Sitio:</label>
+  <label>Sitio</label>
   <select id="sitiosSelect"></select>
 
   <button onclick="agregarMuestra()">Agregar muestra</button>
 </div>
 
-<!-- ================= MAPA ================= -->
 <div id="map"></div>
 
 <script>
-/* ======================================================
-   SUPABASE
-====================================================== */
 const SUPABASE_URL = "https://qtlegktrlrvtwfonqclj.supabase.co";
 const SUPABASE_KEY = "sb_publishable_w-1OBaxH7ZHonR75QGxbEQ_IgjYw7Tu";
 
@@ -84,45 +74,36 @@ const supabaseClient = supabase.createClient(
   SUPABASE_KEY
 );
 
-/* ======================================================
-   LOGIN
-====================================================== */
+let map, markers;
+
 async function login() {
-  const { data, error } = await supabaseClient.auth.signInWithPassword({
-    email: document.getElementById("email").value,
-    password: document.getElementById("password").value
+  const { error } = await supabaseClient.auth.signInWithPassword({
+    email: email.value,
+    password: password.value
   });
 
   if (error) {
-    document.getElementById("loginMsg").textContent = error.message;
-  } else {
-    document.getElementById("login").style.display = "none";
-    document.getElementById("panel").style.display = "block";
-    document.getElementById("map").style.display = "block";
-    initMapa();
-    cargarUsuarios();
+    loginMsg.textContent = error.message;
+    return;
   }
+
+  login.style.display = "none";
+  panel.style.display = "block";
+  map.style.display = "block";
+
+  inicializarMapa();
+  cargarUsuarios();
 }
 
-/* ======================================================
-   MAPA
-====================================================== */
-let map;
-let markersLayer;
-
-function initMapa() {
+function inicializarMapa() {
   map = L.map("map").setView([-34.6, -58.4], 6);
+  markers = L.layerGroup().addTo(map);
 
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution: "© OpenStreetMap"
   }).addTo(map);
-
-  markersLayer = L.layerGroup().addTo(map);
 }
 
-/* ======================================================
-   CARGAR USUARIOS (dueños de datos)
-====================================================== */
 async function cargarUsuarios() {
   const { data, error } = await supabaseClient
     .from("usuarios")
@@ -131,93 +112,63 @@ async function cargarUsuarios() {
 
   if (error) {
     console.error(error);
-    alert("Error cargando usuarios");
     return;
   }
 
-  const select = document.getElementById("usuariosSelect");
-  select.innerHTML = "<option value=''>-- elegir usuario --</option>";
+  usuariosSelect.innerHTML =
+    "<option value=''>-- elegir usuario --</option>";
 
   data.forEach(u => {
-    const opt = document.createElement("option");
-    opt.value = u.id;
-    opt.textContent = u.email;
-    select.appendChild(opt);
+    const o = document.createElement("option");
+    o.value = u.id;
+    o.textContent = u.email;
+    usuariosSelect.appendChild(o);
   });
 }
 
-/* ======================================================
-   AL SELECCIONAR USUARIO → CARGAR SITIOS
-====================================================== */
-document.getElementById("usuariosSelect")
-  .addEventListener("change", async (e) => {
+usuariosSelect.addEventListener("change", async e => {
+  markers.clearLayers();
+  sitiosSelect.innerHTML =
+    "<option value=''>-- elegir sitio --</option>";
 
-    const usuarioId = e.target.value;
-    const sitioSelect = document.getElementById("sitiosSelect");
-    sitioSelect.innerHTML = "<option value=''>-- elegir sitio --</option>";
-    markersLayer.clearLayers();
+  const usuarioId = e.target.value;
+  if (!usuarioId) return;
 
-    if (!usuarioId) return;
+  const { data } = await supabaseClient
+    .from("sitios")
+    .select("id, codigo_sitio, latitud, longitud")
+    .eq("usuario_id", usuarioId);
 
-    const { data, error } = await supabaseClient
-      .from("sitios")
-      .select("id, codigo_sitio, latitud, longitud")
-      .eq("usuario_id", usuarioId)
-      .order("codigo_sitio");
+  data.forEach(s => {
+    const o = document.createElement("option");
+    o.value = s.id;
+    o.textContent = s.codigo_sitio;
+    sitiosSelect.appendChild(o);
 
-    if (error) {
-      console.error(error);
-      alert("Error cargando sitios");
-      return;
+    if (s.latitud && s.longitud) {
+      L.marker([s.latitud, s.longitud])
+        .addTo(markers)
+        .bindPopup(s.codigo_sitio);
     }
-
-    data.forEach(s => {
-      const opt = document.createElement("option");
-      opt.value = s.id;
-      opt.textContent = s.codigo_sitio;
-      sitioSelect.appendChild(opt);
-
-      if (s.latitud && s.longitud) {
-        L.marker([s.latitud, s.longitud])
-          .addTo(markersLayer)
-          .bindPopup(`<b>${s.codigo_sitio}</b>`);
-      }
-    });
+  });
 });
 
-/* ======================================================
-   AGREGAR MUESTRA (solo laboratorio)
-====================================================== */
 async function agregarMuestra() {
-  const sitioId = document.getElementById("sitiosSelect").value;
-  if (!sitioId) {
+  if (!sitiosSelect.value) {
     alert("Seleccioná un sitio");
     return;
   }
 
-  const idLab = prompt("ID de laboratorio:");
+  const idLab = prompt("ID de laboratorio");
   if (!idLab) return;
 
-  const fecha = prompt(
-    "Fecha de muestreo (YYYY-MM-DD):",
-    new Date().toISOString().substring(0,10)
-  );
-  if (!fecha) return;
+  await supabaseClient.from("muestras").insert({
+    sitio_id: sitiosSelect.value,
+    id_lab: idLab,
+    f_muestreo: new Date().toISOString().slice(0,10)
+  });
 
-  const { error } = await supabaseClient
-    .from("muestras")
-    .insert({
-      sitio_id: sitioId,
-      id_lab: idLab,
-      f_muestreo: fecha
-    });
-
-  if (error) {
-    alert("Error al crear la muestra");
-    console.error(error);
-  } else {
-    alert("Muestra creada correctamente");
-  }
+  alert("Muestra creada");
 }
 </script>
 
