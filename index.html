@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <title>Sitios – Visualización</title>
+  <title>Laboratorio – Gestión de Sitios y Muestras</title>
 
   <!-- Leaflet -->
   <link
@@ -15,22 +15,52 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <style>
-    body { margin: 0; font-family: Arial, sans-serif; }
-    #map { height: 100vh; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+    }
 
-    .popup {
-      font-size: 14px;
+    #panel {
+      padding: 10px;
+      background: #f5f5f5;
+      border-bottom: 1px solid #ccc;
+    }
+
+    #map {
+      height: calc(100vh - 80px);
+    }
+
+    label {
+      margin-right: 5px;
+      font-weight: bold;
+    }
+
+    select, button {
+      margin-right: 15px;
+      padding: 4px;
     }
   </style>
 </head>
 <body>
 
+<!-- ================= PANEL LABORATORIO ================= -->
+<div id="panel">
+  <label>Usuario:</label>
+  <select id="usuariosSelect"></select>
+
+  <label>Sitio:</label>
+  <select id="sitiosSelect"></select>
+
+  <button onclick="agregarMuestra()">Agregar muestra</button>
+</div>
+
+<!-- ================= MAPA ================= -->
 <div id="map"></div>
 
 <script>
-/* =================================
+/* ======================================================
    SUPABASE
-================================= */
+====================================================== */
 const SUPABASE_URL = "https://qtlegktrlrvtwfonqclj.supabase.co";
 const SUPABASE_KEY = "sb_publishable_w-1OBaxH7ZHonR75QGxbEQ_IgjYw7Tu";
 
@@ -39,26 +69,119 @@ const supabaseClient = supabase.createClient(
   SUPABASE_KEY
 );
 
-/* =================================
+/* ======================================================
    MAPA
-================================= */
+====================================================== */
 const map = L.map("map").setView([-34.6, -58.4], 6);
 
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: "© OpenStreetMap"
 }).addTo(map);
 
-/* =================================
-   ESTADO
-================================= */
-let sitioSeleccionado = null;
+let markersLayer = L.layerGroup().addTo(map);
 
-/* =================================
-   CARGAR SITIOS
-================================= */
-async function cargarSitios() {
+/* ======================================================
+   CARGAR USUARIOS (dueños de datos)
+====================================================== */
+async function cargarUsuarios() {
   const { data, error } = await supabaseClient
-    .from("sitios")
-    .select("*");
+    .from("usuarios")
+    .select("id, email")
+    .order("email");
 
   if (error) {
+    console.error("Error cargando usuarios:", error);
+    return;
+  }
+
+  const select = document.getElementById("usuariosSelect");
+  select.innerHTML = "<option value=''>-- elegir usuario --</option>";
+
+  data.forEach(u => {
+    const opt = document.createElement("option");
+    opt.value = u.id;
+    opt.textContent = u.email;
+    select.appendChild(opt);
+  });
+}
+
+cargarUsuarios();
+
+/* ======================================================
+   AL SELECCIONAR USUARIO → CARGAR SITIOS
+====================================================== */
+document.getElementById("usuariosSelect")
+  .addEventListener("change", async (e) => {
+
+    const usuarioId = e.target.value;
+    const sitioSelect = document.getElementById("sitiosSelect");
+    sitioSelect.innerHTML = "<option value=''>-- elegir sitio --</option>";
+    markersLayer.clearLayers();
+
+    if (!usuarioId) return;
+
+    const { data, error } = await supabaseClient
+      .from("sitios")
+      .select("id, codigo_sitio, latitud, longitud")
+      .eq("usuario_id", usuarioId)
+      .order("codigo_sitio");
+
+    if (error) {
+      console.error("Error cargando sitios:", error);
+      return;
+    }
+
+    data.forEach(s => {
+      // Combo de sitios
+      const opt = document.createElement("option");
+      opt.value = s.id;
+      opt.textContent = s.codigo_sitio;
+      sitioSelect.appendChild(opt);
+
+      // Mapa
+      if (s.latitud && s.longitud) {
+        L.marker([s.latitud, s.longitud])
+          .addTo(markersLayer)
+          .bindPopup(`<b>${s.codigo_sitio}</b>`);
+      }
+    });
+});
+
+/* ======================================================
+   AGREGAR MUESTRA (solo laboratorio)
+====================================================== */
+async function agregarMuestra() {
+  const sitioId = document.getElementById("sitiosSelect").value;
+  if (!sitioId) {
+    alert("Seleccioná un sitio");
+    return;
+  }
+
+  const idLab = prompt("ID de laboratorio para la muestra:");
+  if (!idLab) return;
+
+  const fecha = prompt(
+    "Fecha de muestreo (YYYY-MM-DD):",
+    new Date().toISOString().substring(0,10)
+  );
+  if (!fecha) return;
+
+  const { error } = await supabaseClient
+    .from("muestras")
+    .insert({
+      sitio_id: sitioId,
+      id_lab: idLab,
+      f_muestreo: fecha
+    });
+
+  if (error) {
+    alert("Error al crear la muestra");
+    console.error(error);
+  } else {
+    alert("Muestra creada correctamente");
+  }
+}
+</script>
+
+</body>
+</html>
